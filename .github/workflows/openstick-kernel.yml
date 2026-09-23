@@ -105,7 +105,13 @@ jobs:
           tar -C "$RUNNER_TEMP/modules-root" -czf "artifacts/modules-$release.tar.gz" \
             "lib/modules/$release"
           git rev-parse HEAD > artifacts/source-commit.txt
-          sha256sum artifacts/* > artifacts/SHA256SUMS
+          (
+            cd artifacts
+            sha256sum Image Image.gz kernel-release.txt kernel.config modules-*.tar.gz \
+              modules.dep msm8916-thwc-ufi001c.dtb \
+              msm8916-xiaoxun-jz0145-v33.dtb openstick_msm8916.fragment \
+              source-commit.txt > SHA256SUMS
+          )
 
       - name: Upload kernel build artifacts
         uses: actions/upload-artifact@v4
