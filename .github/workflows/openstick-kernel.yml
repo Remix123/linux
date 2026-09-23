@@ -38,10 +38,10 @@ jobs:
         run: |
           set -euo pipefail
           export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
-          make O=out msm8916_defconfig
-          scripts/kconfig/merge_config.sh -m -O out \
-            out/.config arch/arm64/configs/openstick_msm8916.fragment
-          make O=out olddefconfig
+          make O=build-output msm8916_defconfig
+          scripts/kconfig/merge_config.sh -m -O build-output \
+            build-output/.config arch/arm64/configs/openstick_msm8916.fragment
+          make O=build-output olddefconfig
           for expected in \
             CONFIG_USB_ACM=y \
             CONFIG_USB_SERIAL=m \
@@ -54,25 +54,25 @@ jobs:
             CONFIG_ZRAM=m \
             CONFIG_ZRAM_BACKEND_LZ4=y \
             CONFIG_ZRAM_DEF_COMP_LZ4=y; do
-            grep -qx "$expected" out/.config || { echo "Missing config: $expected"; exit 1; }
+            grep -qx "$expected" build-output/.config || { echo "Missing config: $expected"; exit 1; }
           done
           for disabled in CONFIG_BT CONFIG_SOUND CONFIG_NFC; do
-            grep -qx "# $disabled is not set" out/.config || { echo "Not disabled: $disabled"; exit 1; }
+            grep -qx "# $disabled is not set" build-output/.config || { echo "Not disabled: $disabled"; exit 1; }
           done
 
       - name: Build kernel, modules, and device trees
         run: |
           set -euo pipefail
-          make -j"$(nproc)" O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+          make -j"$(nproc)" O=build-output ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
             Image.gz modules dtbs
 
       - name: Install and validate modules
         shell: bash
         run: |
           set -euo pipefail
-          release="$(make -s O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- kernelrelease)"
+          release="$(make -s O=build-output ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- kernelrelease)"
           modroot="$RUNNER_TEMP/modules-root"
-          make O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+          make O=build-output ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
             INSTALL_MOD_PATH="$modroot" modules_install
           depmod -b "$modroot" "$release"
           for module in usbserial option zram; do
@@ -80,21 +80,21 @@ jobs:
             modprobe -d "$modroot" -S "$release" -n "$module"
           done
           test -s "$modroot/lib/modules/$release/modules.dep"
-          printf '%s\n' "$release" > out/kernel-release.txt
+          printf '%s\n' "$release" > build-output/kernel-release.txt
 
       - name: Collect build artifacts
         shell: bash
         run: |
           set -euo pipefail
-          release="$(cat out/kernel-release.txt)"
+          release="$(cat build-output/kernel-release.txt)"
           mkdir -p artifacts
-          cp out/arch/arm64/boot/Image artifacts/
-          cp out/arch/arm64/boot/Image.gz artifacts/
-          cp out/arch/arm64/boot/dts/qcom/msm8916-thwc-ufi001c.dtb artifacts/
-          cp out/arch/arm64/boot/dts/qcom/msm8916-xiaoxun-jz0145-v33.dtb artifacts/
-          cp out/.config artifacts/kernel.config
+          cp build-output/arch/arm64/boot/Image artifacts/
+          cp build-output/arch/arm64/boot/Image.gz artifacts/
+          cp build-output/arch/arm64/boot/dts/qcom/msm8916-thwc-ufi001c.dtb artifacts/
+          cp build-output/arch/arm64/boot/dts/qcom/msm8916-xiaoxun-jz0145-v33.dtb artifacts/
+          cp build-output/.config artifacts/kernel.config
           cp arch/arm64/configs/openstick_msm8916.fragment artifacts/
-          cp out/kernel-release.txt artifacts/
+          cp build-output/kernel-release.txt artifacts/
           cp "$RUNNER_TEMP/modules-root/lib/modules/$release/modules.dep" artifacts/
           tar -C "$RUNNER_TEMP/modules-root" -czf "artifacts/modules-$release.tar.gz" \
             "lib/modules/$release"
