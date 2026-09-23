@@ -75,8 +75,14 @@ jobs:
           make O=build-output ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
             INSTALL_MOD_PATH="$modroot" modules_install
           depmod -b "$modroot" "$release"
-          for module in usbserial option zram; do
-            modinfo -b "$modroot" "$module" >/dev/null
+          for entry in \
+            usbserial:kernel/drivers/usb/serial/usbserial.ko \
+            option:kernel/drivers/usb/serial/option.ko \
+            zram:kernel/drivers/block/zram/zram.ko; do
+            module="${entry%%:*}"
+            path="${entry#*:}"
+            test -s "$modroot/lib/modules/$release/$path"
+            modinfo "$modroot/lib/modules/$release/$path" >/dev/null
             modprobe -d "$modroot" -S "$release" -n "$module"
           done
           test -s "$modroot/lib/modules/$release/modules.dep"
